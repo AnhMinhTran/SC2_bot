@@ -6,7 +6,11 @@ import random
 
 
 class ZergAgent(base_agent.BaseAgent):
-    # Where all action take place after every steps
+    def __init__(self):
+        super(ZergAgent, self).__init__()
+
+        self.attack_cordinates = None
+
     def unit_type_is_selected(self, obs, unit_type):
         if (len(obs.observation.single_select) > 0 and
                 obs.observation.single_select[0].unit_type == unit_type):
@@ -25,8 +29,20 @@ class ZergAgent(base_agent.BaseAgent):
         return [unit for unit in obs.observation.feature_units
                 if unit.unit_type == unit_type]
 
+    # Where all action take place after every steps
     def step(self, obs):
         super(ZergAgent, self).step(obs)
+
+        if obs.first():
+            player_y, player_x = (obs.observation.feature_minimap.player_relative ==
+                                  features.PlayerRelative.SELF).nonzero()
+            xmean = player_x.mean()
+            ymean = player_y.mean()
+
+            if xmean < 31 and ymean <= 31:
+                self.attack_cordinates = (49, 49)
+            else:
+                self.attack_cordinates = (12, 16)
 
         spawning_pools = self.get_units_by_type(obs, units.Zerg.SpawningPool)
         if len(spawning_pools) == 0:
@@ -58,6 +74,14 @@ class ZergAgent(base_agent.BaseAgent):
 
             return actions.FUNCTIONS.select_point("select_all_type", (larva.x,
                                                                       larva.y))
+
+        zergling = self.get_units_by_type(obs, units.Zerg.Zergling)
+        if len(zergling) > 10:
+            if self.unit_type_is_selected(obs, units.Zerg.Zergling):
+                if self.can_do(obs, actions.FUNCTIONS.Attack_minimap.id):
+                    return actions.FUNCTIONS.Attack_minimap("now", self.attack_cordinates)
+            if self.can_do(obs, actions.FUNCTIONS.select_army.id):
+                return actions.FUNCTIONS.select_army("select")
         return actions.FUNCTIONS.no_op()
 
 
